@@ -1,0 +1,234 @@
+<div class="container mt-4 p-4 border shadow-sm bg-light rounded">
+    <h3 class="mb-4">🧾 Create Challan</h3>
+
+    <li>
+        <a href="@Url.Action("ChallanTypeView", "CustomChallan")">
+            <i class="fa fa-money"></i> Challan Type
+        </a>
+    </li>
+    <div id="messageArea" class="mb-3"></div>
+    <style>
+        .alert {
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+    <h1>🧾Create Challan</h1>
+
+    <!-- Step 1: Roll Number Input -->
+    <div class="row mb-3">
+        @*<div class="col-md-3">
+            <label>Batch</label>
+            <input type="text" id="batch" class="form-control" placeholder="e.g. FA-2022" required />
+        </div>
+        <div class="col-md-3">
+            <label>Degree</label>
+            <input type="text" id="dept" class="form-control" placeholder="e.g. BSCS" required />
+        </div>*@
+
+        <div class="col-md-3">
+            <label>Batch</label>
+            <select id="batch" class="form-control" required>
+                <option disabled selected>Select Batch</option>
+                @if (ViewBag.BatchList != null && ViewBag.BatchList.Rows.Count > 0)
+                {
+                    foreach (System.Data.DataRow row in ViewBag.BatchList.Rows)
+                    {
+                        <option value="@row["SemesterSession"]">@row["SemesterSession"]</option>
+                    }
+                }
+                else
+                {
+                    <option disabled>No batches found</option>
+                }
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <label>Degree</label>
+            <select id="dept" class="form-control" required>
+                <option disabled selected>Select Degree</option>
+                @if (ViewBag.DegreeList != null && ViewBag.DegreeList.Rows.Count > 0)
+                {
+                    foreach (System.Data.DataRow row in ViewBag.DegreeList.Rows)
+                    {
+                        <option value="@row["DegreeName"]">@row["DegreeName"]</option>
+                    }
+                }
+                else
+                {
+                    <option disabled>No degrees found</option>
+                }
+            </select>
+        </div>
+
+
+        <div class="col-md-3">
+            <label>Sequence No</label>
+            <input type="text" id="seq" class="form-control" placeholder="e.g. 001" required />
+        </div>
+        <div class="col-md-3 mt-4">
+            <button class="btn btn-primary mt-2" onclick="verifyRollNo()">Next</button>
+        </div>
+    </div>
+
+    <!-- Step 2: Display Full Roll No & Student -->
+    <div id="verifyResult" class="border p-3 mt-3 bg-white rounded d-none">
+        <p><strong>Roll No : </strong> <span id="fullRoll"></span></p>
+        <p><strong>Student Name : </strong> <span id="studentName"></span></p>
+
+        <hr />
+
+        <div class="form-group">
+            <label>Challan Type</label>
+            @*<select id="challanType" class="form-control" required>
+            <option value="">-- Select Challan Type --</option>
+            @if (ViewBag.ChallanTypeList == null)
+            {
+                <option disabled>ChallanTypeList is NULL</option>
+            }
+            else
+            {
+                foreach (System.Data.DataRow row in ViewBag.ChallanTypeList.Rows)
+                {
+                    <option value="@row["ChallanTypeID"]">@row["ChallanType"]</option>
+                }
+            }
+        </select>*@
+
+            <select id="challantype" name="challantype" class="form-control" required>
+                <option disabled selected>Select Challan Type</option>
+                @if (ViewBag.ChallanTypeList != null && ViewBag.ChallanTypeList.Rows.Count > 0)
+                {
+                    var manualTypes = new List<string> {
+            "FINE-Edit Challan", "Re App. Processing", "App. Processing", "UMC",
+            "Extension", "Non Attestation Fine", "Cancelled", "Igrade-FinalTerm",
+            "Igrade-MidTerm", "Fee Refund", "Testing", "Additional", "NUll"
+        };
+
+                    foreach (System.Data.DataRow row in ViewBag.ChallanTypeList.Rows)
+                    {
+                        string type = row["ChallanType"].ToString();
+                        if (manualTypes.Contains(type))
+                        {
+                            <option value="@type">@type</option>
+                        }
+                    }
+                }
+                else
+                {
+                    <option disabled>No Challan Types Available</option>
+                }
+            </select>
+
+        </div>
+
+        <div class="form-group">
+            <label>Amount</label>
+            <input type="number" id="amount" class="form-control" placeholder="e.g. 5000" required />
+        </div>
+
+        <div class="form-group">
+            <label>Issue Date</label>
+            <input type="date" id="issueDate" class="form-control" required />
+        </div>
+
+        <div class="form-group">
+            <label>Due Date</label>
+            <input type="date" id="dueDate" class="form-control" required />
+        </div>
+        <input type="hidden" id="studentID" />
+
+        <button class="btn btn-success mt-3" onclick="createChallan()">Create Challan</button>
+    </div>
+</div>
+
+
+<script>
+    function verifyRollNo() {
+        let batch = document.getElementById("batch").value.trim();
+        let dept = document.getElementById("dept").value.trim();
+        let seq = document.getElementById("seq").value.trim();
+
+        if (!batch || !dept || !seq) {
+            alert(" Please fill all roll number fields (Batch, Department, Sequence).");
+            return;
+        }
+
+        let full = `${batch}/${dept}/${seq}`;
+
+        fetch(`/CustomChallan/VerifyStudent?rollno=${full}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById("verifyResult").classList.remove("d-none");
+                    document.getElementById("fullRoll").innerText = full;
+                    document.getElementById("studentName").innerText = data.name;
+                    document.getElementById("studentID").value = data.id;
+                } else {
+                    alert("❌ Student not found.");
+                }
+            });
+    }
+
+    function createChallan() {
+        const btn = document.querySelector("button.btn-success");
+        btn.disabled = true;
+
+        const studentID = document.getElementById("studentID").value;
+        const challanType = document.getElementById("challantype").value; // fixed here
+        const amount = document.getElementById("amount").value;
+        const issueDate = document.getElementById("issueDate").value;
+        const dueDate = document.getElementById("dueDate").value;
+
+        const messageArea = document.getElementById("messageArea");
+
+        if (!studentID || !challanType || !amount || !issueDate || !dueDate) {
+            messageArea.innerHTML = `<div class="alert alert-danger">Please fill all required fields.</div>`;
+            btn.disabled = false;
+            return;
+        }
+
+        const payload = {
+            StdRollNoID: studentID,
+            ChallanTypeID: challanType,
+            Amount: amount,
+            IssueDate: issueDate,
+            DueDate: dueDate
+        };
+
+        fetch('/CustomChallan/CreateChallan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    messageArea.innerHTML = `<div class="alert alert-success">Challan created successfully!</div>`;
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    messageArea.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                    btn.disabled = false;
+                }
+            })
+            .catch(() => {
+                messageArea.innerHTML = `<div class="alert alert-danger">❌ Something went wrong!</div>`;
+                btn.disabled = false;
+            });
+    }
+
+
+
+</script>
