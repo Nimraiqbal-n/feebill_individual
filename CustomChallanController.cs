@@ -6,6 +6,7 @@ using System.Linq;
 using System.Web;
 using System.Web.Mvc;
 using FACULTY_PORTAL.Models;
+using System.Data.SqlClient;
 
 namespace FACULTY_PORTAL.Controllers
 {
@@ -297,7 +298,7 @@ namespace FACULTY_PORTAL.Controllers
             return RedirectToAction("CustomChallan", "CustomChallan");
         }
 
-        /// 
+        //////////////////////////////////////////////////////
         /// //////////////////////////////////////////////////
         [HttpPost]
         public ActionResult CreateAcademicChallan(FormCollection form)
@@ -321,7 +322,7 @@ namespace FACULTY_PORTAL.Controllers
 
             try
             {
-                string q = $"EXEC PROC_CreateChallantype '{batch}', '{department}', '{sequence}', '{challanType}', '{headName}', '{amount}', '{issueDate}', '{dueDate}'";
+                string q = $"EXEC PROC_CreateChallantype '{batch}', '{department}', '{sequence}', '{challanType}', '{amount}', '{issueDate}', '{dueDate}'";
                 DAL d = new DAL();
                 d.conn_open();
                 d.command(q);
@@ -340,7 +341,7 @@ namespace FACULTY_PORTAL.Controllers
         public JsonResult VerifyStudent(string rollno)
         {
             DAL d = new DAL();
-            string q = $"SELECT TOP 1 ID, StudentName FROM StudentInfo WHERE StdRollNo = '{rollno}'";
+            string q = $"SELECT TOP 1 ID, StudentName, ClassSection FROM StudentInfo WHERE StdRollNo = '{rollno}'";
             var ds = d.Select(q);
 
             if (ds.Tables[0].Rows.Count > 0)
@@ -350,7 +351,8 @@ namespace FACULTY_PORTAL.Controllers
                 {
                     success = true,
                     id = row["ID"].ToString(),
-                    name = row["StudentName"].ToString()
+                    name = row["StudentName"].ToString(),
+                    section = row["ClassSection"].ToString()  
                 }, JsonRequestBehavior.AllowGet);
             }
             else
@@ -358,42 +360,65 @@ namespace FACULTY_PORTAL.Controllers
                 return Json(new { success = false }, JsonRequestBehavior.AllowGet);
             }
         }
+
         [HttpPost]
         public JsonResult CreateChallan(CreateChallanModel model)
         {
             try
             {
                 DAL d = new DAL();
-                string studentQuery = $"SELECT StdRollNo, DegreeID, JoiningSession FROM StudentInfo WHERE ID = '{model.StdRollNoID}'";
-                var ds = d.Select(studentQuery);
 
+                // 1) Fetch student roll
+                var ds = d.Select($"SELECT StdRollNo, DegreeID, JoiningSession FROM StudentInfo WHERE ID = '{model.StdRollNoID}'");
                 if (ds.Tables[0].Rows.Count == 0)
-                {
                     return Json(new { success = false, message = "❌ Student not found by ID." });
-                }
 
-                var row = ds.Tables[0].Rows[0];
-                string fullRoll = row["StdRollNo"].ToString();
-                string[] parts = fullRoll.Split('/');
+                string fullRoll = ds.Tables[0].Rows[0]["StdRollNo"].ToString();
+                var parts = fullRoll.Split('/');
+                string batch = parts[0], dept = parts[1], seq = parts[2];
 
-                string batch = parts[0];
-                string dept = parts[1];
-                string seq = parts[2];
-
-                string challanTypeName = model.ChallanTypeID; // ✅ Now using actual name
-
-                if (string.IsNullOrEmpty(challanTypeName))
-                {
+                if (string.IsNullOrWhiteSpace(model.ChallanTypeID))
                     return Json(new { success = false, message = "❌ Challan Type is required." });
-                }
 
-                string q = $"EXEC PROC_CreateChallantype '{batch}', '{dept}', '{seq}', '{challanTypeName}', 'Academic Fee', {model.Amount}, '{model.IssueDate}', '{model.DueDate}'";
+                // 2) Duplicate check (StdRollNo + ChallanType + SemesterSession)
+                string checkSql = @"
+            SELECT COUNT(*) AS Cnt
+            FROM ChallanInfo
+            WHERE StdRollNo = @StdRollNo
+              AND ChallanType = @ChallanType
+              AND SemesterSession = @SemesterSession
+              AND Status = 'Valid'";
 
+                var checkParams = new[]
+                {
+            new SqlParameter("@StdRollNo", fullRoll),
+            new SqlParameter("@ChallanType", model.ChallanTypeID),
+            new SqlParameter("@SemesterSession", model.SemesterSession)
+        };
+
+                var dupDs = d.SelectSecure(checkSql, checkParams);
+                int exists = Convert.ToInt32(dupDs.Tables[0].Rows[0]["Cnt"]);
+                if (exists > 0)
+                    return Json(new { success = false, message = "❌ This challan already exists for the selected session." });
+
+                // 3) Create challan via stored procedure (also parameterized)
                 d.conn_open();
-                d.command(q);
+                using (var cmd = new SqlCommand("PROC_CreateChallantype", d.conn))
+                {
+                    cmd.CommandType = CommandType.StoredProcedure;
+                    cmd.Parameters.AddWithValue("@Batch", batch);
+                    cmd.Parameters.AddWithValue("@Department", dept);
+                    cmd.Parameters.AddWithValue("@SequenceNumber", seq);
+                    cmd.Parameters.AddWithValue("@ChallanType", model.ChallanTypeID);
+                    cmd.Parameters.AddWithValue("@Amount", model.Amount);
+                    cmd.Parameters.AddWithValue("@IssueDate", model.IssueDate);
+                    cmd.Parameters.AddWithValue("@DueDate", model.DueDate);
+                    cmd.Parameters.AddWithValue("@SemesterSession", model.SemesterSession); // your updated SP param
+                    cmd.ExecuteNonQuery();
+                }
                 d.conn_close();
 
-                return Json(new { success = true });
+                return Json(new { success = true, message = "✅ Challan created successfully." });
             }
             catch (Exception ex)
             {
@@ -401,21 +426,14 @@ namespace FACULTY_PORTAL.Controllers
             }
         }
 
-        //private string GetChallanTypeNameById(int id)
-        //{
-        //    DAL d = new DAL();
-        //    string q = $"SELECT ChallanType FROM Challan_Types WHERE ChallanTypeID = {id}";
-        //    var ds = d.Select(q);
-        //    if (ds.Tables[0].Rows.Count > 0)
-        //        return ds.Tables[0].Rows[0]["ChallanType"].ToString();
-        //    return "";
-        //}
+
         public ActionResult ChallanTypeView()
         {
             try
             {
-                // 1. Challan Types
+                
                 DAL d1 = new DAL();
+                
                 string challanTypeQuery = @"
             SELECT DISTINCT ChallanType, ChallanType AS ChallanTypeID 
             FROM ChallanInfo 
@@ -427,15 +445,19 @@ namespace FACULTY_PORTAL.Controllers
                 var challanTypeDs = d1.Select(challanTypeQuery);
                 ViewBag.ChallanTypeList = challanTypeDs.Tables[0];
 
-                // 2. Batch
+                
                 DAL d2 = new DAL();
                 var batchDs = d2.Select("SELECT DISTINCT SemesterSession FROM SemesterSessionInfo ORDER BY SemesterSession DESC");
                 ViewBag.BatchList = batchDs != null && batchDs.Tables.Count > 0 ? batchDs.Tables[0] : null;
 
-                // 3. Degree
+               
                 DAL d3 = new DAL();
                 var degreeDs = d3.Select("SELECT DISTINCT DegreeName FROM DegreeInfo");
                 ViewBag.DegreeList = degreeDs != null && degreeDs.Tables.Count > 0 ? degreeDs.Tables[0] : null;
+
+                DAL d4 = new DAL();
+                var semesterDs = d4.Select("SELECT DISTINCT SemesterSession FROM SemesterSessionInfo ORDER BY SemesterSession DESC");
+                ViewBag.SemesterList = semesterDs != null && semesterDs.Tables.Count > 0 ? semesterDs.Tables[0] : null;
 
                 return View();
             }
@@ -444,23 +466,6 @@ namespace FACULTY_PORTAL.Controllers
                 return Content("❌ Error: " + ex.Message);
             }
         }
-
-
-        //public ActionResult ChallanTypeView()
-        //{
-        //    try
-        //    {
-        //        DAL d = new DAL();
-        //        string q = "SELECT DISTINCT ChallanType, ChallanType AS ChallanTypeID FROM ChallanInfo WHERE ChallanType IS NOT NULL";
-        //        var ds = d.Select(q);
-        //        ViewBag.ChallanTypeList = ds.Tables[0];
-        //        return View();
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return Content("❌ Error: " + ex.Message);
-        //    }
-        //}
 
     }
 }
