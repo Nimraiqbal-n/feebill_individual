@@ -1,13 +1,15 @@
 <div class="container mt-4 p-4 border shadow-sm bg-light rounded">
-    <h3 class="mb-4">🧾 Create Challan</h3>
-
-    <li>
-        <a href="@Url.Action("ChallanTypeView", "CustomChallan")">
-            <i class="fa fa-money"></i> Challan Type
-        </a>
-    </li>
     <div id="messageArea" class="mb-3"></div>
     <style>
+        .card-header {
+            background-color: #5C5CFF;
+            color: white;
+            border-radius: 12px 12px 0 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+            text-align: center;
+        }
+
         .alert {
             padding: 10px;
             margin-bottom: 15px;
@@ -23,20 +25,58 @@
             background-color: #f8d7da;
             color: #721c24;
         }
-    </style>
-    <h1>🧾Create Challan</h1>
 
+        .select2-container .select2-selection--single {
+            height: 38px !important;
+            padding: 6px 12px !important;
+            border: 1px solid #ced4da;
+            border-radius: 0.375rem;
+            background-color: #fff;
+            font-size: 1rem;
+            transition: all 0.2s ease-in-out;
+            box-shadow: none;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 26px !important;
+            color: #495057;
+            font-weight: 500;
+        }
+
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 36px;
+            right: 10px;
+        }
+
+        .select2-container--default .select2-selection--single:hover {
+            border-color: #86b7fe;
+        }
+
+        .select2-container--default.select2-container--focus .select2-selection--single {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+        .select2-dropdown {
+            border-radius: 0.375rem;
+            border: 1px solid #ced4da;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+
+        .select2-search--dropdown .select2-search__field {
+            border-radius: 0.375rem;
+            border: 1px solid #ced4da;
+            padding: 6px 12px;
+        }
+
+        .select2-container {
+            width: 100%;
+        }
+    </style>
+    <h1 class="card-header">Create Challan</h1>
+    <br />
     <!-- Step 1: Roll Number Input -->
     <div class="row mb-3">
-        @*<div class="col-md-3">
-            <label>Batch</label>
-            <input type="text" id="batch" class="form-control" placeholder="e.g. FA-2022" required />
-        </div>
-        <div class="col-md-3">
-            <label>Degree</label>
-            <input type="text" id="dept" class="form-control" placeholder="e.g. BSCS" required />
-        </div>*@
-
         <div class="col-md-3">
             <label>Batch</label>
             <select id="batch" class="form-control" required>
@@ -73,13 +113,13 @@
             </select>
         </div>
 
-
         <div class="col-md-3">
             <label>Sequence No</label>
             <input type="text" id="seq" class="form-control" placeholder="e.g. 001" required />
         </div>
         <div class="col-md-3 mt-4">
-            <button class="btn btn-primary mt-2" onclick="verifyRollNo()">Next</button>
+            <button class="btn btn-primary mt-2" onclick="verifyRollNo()" style="background-color: #5C5CFF; ">Next</button>
+
         </div>
     </div>
 
@@ -87,35 +127,41 @@
     <div id="verifyResult" class="border p-3 mt-3 bg-white rounded d-none">
         <p><strong>Roll No : </strong> <span id="fullRoll"></span></p>
         <p><strong>Student Name : </strong> <span id="studentName"></span></p>
-
+        <p><strong>Class Section : </strong> <span id="classSection"></span></p>
         <hr />
+
+
+        <div class="form-group">
+            <label>Semester Session</label>
+            <select id="semesterSession" name="semesterSession" class="form-control" required>
+                <option disabled selected>Select Semester Session</option>
+                @if (ViewBag.SemesterList != null && ViewBag.SemesterList.Rows.Count > 0)
+                {
+                    foreach (System.Data.DataRow row in ViewBag.SemesterList.Rows)
+                    {
+                        <option value="@row["SemesterSession"]">@row["SemesterSession"]</option>
+                    }
+                }
+                else
+                {
+                    <option disabled>No semester sessions found</option>
+                }
+            </select>
+        </div>
+
+
 
         <div class="form-group">
             <label>Challan Type</label>
-            @*<select id="challanType" class="form-control" required>
-            <option value="">-- Select Challan Type --</option>
-            @if (ViewBag.ChallanTypeList == null)
-            {
-                <option disabled>ChallanTypeList is NULL</option>
-            }
-            else
-            {
-                foreach (System.Data.DataRow row in ViewBag.ChallanTypeList.Rows)
-                {
-                    <option value="@row["ChallanTypeID"]">@row["ChallanType"]</option>
-                }
-            }
-        </select>*@
-
             <select id="challantype" name="challantype" class="form-control" required>
                 <option disabled selected>Select Challan Type</option>
                 @if (ViewBag.ChallanTypeList != null && ViewBag.ChallanTypeList.Rows.Count > 0)
                 {
                     var manualTypes = new List<string> {
-            "FINE-Edit Challan", "Re App. Processing", "App. Processing", "UMC",
-            "Extension", "Non Attestation Fine", "Cancelled", "Igrade-FinalTerm",
-            "Igrade-MidTerm", "Fee Refund", "Testing", "Additional", "NUll"
-        };
+                        "FINE-Edit Challan", "Re App. Processing", "App. Processing", "UMC",
+                        "Extension", "Non Attestation Fine", "Cancelled", "Igrade-FinalTerm",
+                        "Igrade-MidTerm", "Fee Refund", "Testing", "Additional", "NUll"
+                    };
 
                     foreach (System.Data.DataRow row in ViewBag.ChallanTypeList.Rows)
                     {
@@ -131,7 +177,6 @@
                     <option disabled>No Challan Types Available</option>
                 }
             </select>
-
         </div>
 
         <div class="form-group">
@@ -150,10 +195,14 @@
         </div>
         <input type="hidden" id="studentID" />
 
-        <button class="btn btn-success mt-3" onclick="createChallan()">Create Challan</button>
+        <button class="btn btn-success mt-3" onclick="createChallan()" style="background-color: #5C5CFF; ">Create Challan</button>
     </div>
 </div>
 
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
     function verifyRollNo() {
@@ -162,7 +211,11 @@
         let seq = document.getElementById("seq").value.trim();
 
         if (!batch || !dept || !seq) {
-            alert(" Please fill all roll number fields (Batch, Department, Sequence).");
+            Swal.fire({
+                title: "Missing Fields",
+                text: "Please fill all roll number fields (Batch, Department, Sequence).",
+                icon: "warning"
+            });
             return;
         }
 
@@ -175,9 +228,14 @@
                     document.getElementById("verifyResult").classList.remove("d-none");
                     document.getElementById("fullRoll").innerText = full;
                     document.getElementById("studentName").innerText = data.name;
+                    document.getElementById("classSection").innerText = data.section;
                     document.getElementById("studentID").value = data.id;
                 } else {
-                    alert("❌ Student not found.");
+                    Swal.fire({
+                        title: "❌ Not Found",
+                        text: "Student record not found.",
+                        icon: "error"
+                    });
                 }
             });
     }
@@ -187,15 +245,18 @@
         btn.disabled = true;
 
         const studentID = document.getElementById("studentID").value;
-        const challanType = document.getElementById("challantype").value; // fixed here
+        const challanType = document.getElementById("challantype").value;
         const amount = document.getElementById("amount").value;
         const issueDate = document.getElementById("issueDate").value;
         const dueDate = document.getElementById("dueDate").value;
+        const semesterSession = document.getElementById("semesterSession").value;
 
-        const messageArea = document.getElementById("messageArea");
-
-        if (!studentID || !challanType || !amount || !issueDate || !dueDate) {
-            messageArea.innerHTML = `<div class="alert alert-danger">Please fill all required fields.</div>`;
+        if (!studentID || !challanType || !amount || !issueDate || !dueDate || !semesterSession) {
+            Swal.fire({
+                title: "⚠️ Missing Data",
+                text: "Please fill all required fields before creating challan.",
+                icon: "warning"
+            });
             btn.disabled = false;
             return;
         }
@@ -205,7 +266,8 @@
             ChallanTypeID: challanType,
             Amount: amount,
             IssueDate: issueDate,
-            DueDate: dueDate
+            DueDate: dueDate,
+            SemesterSession: semesterSession
         };
 
         fetch('/CustomChallan/CreateChallan', {
@@ -216,19 +278,55 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    messageArea.innerHTML = `<div class="alert alert-success">Challan created successfully!</div>`;
-                    setTimeout(() => window.location.reload(), 1500);
+                    Swal.fire({
+                        title: "✅ Success",
+                        text: "Challan created successfully!",
+                        icon: "success",
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => window.location.reload());
                 } else {
-                    messageArea.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                    Swal.fire({
+                        title: "❌ Failed",
+                        text: data.message,
+                        icon: "error"
+                    });
                     btn.disabled = false;
                 }
             })
             .catch(() => {
-                messageArea.innerHTML = `<div class="alert alert-danger">❌ Something went wrong!</div>`;
+                Swal.fire({
+                    title: "❌ Error",
+                    text: "Something went wrong while saving challan!",
+                    icon: "error"
+                });
                 btn.disabled = false;
             });
     }
+</script>
 
 
-
+<script>
+    $(document).ready(function () {
+        $('#semesterSession').select2({
+            placeholder: "Select Semester Session",
+            minimumResultsForSearch: 0,
+            width: '100%'
+        });
+        $('#batch').select2({
+            placeholder: "Select Batch",
+            minimumResultsForSearch: 0,
+            width: '100%'
+        });
+        $('#dept').select2({
+            placeholder: "Select Degree",
+            minimumResultsForSearch: 0,
+            width: '100%'
+        });
+        $('#challantype').select2({
+            placeholder: "Select Challan Type",
+            minimumResultsForSearch: 0,
+            width: '100%'
+        });
+    });
 </script>
